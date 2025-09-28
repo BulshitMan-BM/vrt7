@@ -1,9 +1,32 @@
+/**
+ * =================================================================
+ * SCRIPT LENGKAP: LOGIN SYSTEM & PROFILE SYSTEM
+ * Cukup salin semua kode di bawah ini dan tempelkan ke file JS Anda.
+ * =================================================================
+ */
+
+// Function untuk toggle password visibility (dibuat global karena dipanggil dari onclick HTML)
+function togglePasswordVisibility(inputId) {
+    const input = document.getElementById(inputId);
+    const icon = input.nextElementSibling.querySelector('i');
+    if (input && icon) {
+        if (input.type === "password") {
+            input.type = "text";
+            icon.className = "fas fa-eye-slash";
+        } else {
+            input.type = "password";
+            icon.className = "fas fa-eye";
+        }
+    }
+}
+
+// MODUL SISTEM LOGIN
 const LoginSystem = (function() {
     // Private variables
     const W = "https://pemanis.bulshitman1.workers.dev/";
     let otpTimer;
     let currentUser = null;
-    let captchaCode = ''; // <- [DITAMBAHKAN] Variabel untuk menyimpan kode Captcha
+    let captchaCode = '';
 
     // Private functions
     function S(i, m) {
@@ -13,7 +36,6 @@ const LoginSystem = (function() {
         }
     }
 
-    // [DITAMBAHKAN] Fungsi untuk generate dan menampilkan Captcha
     function generateCaptcha() {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
         let result = '';
@@ -25,7 +47,6 @@ const LoginSystem = (function() {
         if (captchaTextElement) {
             captchaTextElement.textContent = captchaCode;
         }
-        // Kosongkan input field setiap kali captcha baru dibuat
         const verifyCodeInput = document.getElementById('vc');
         if (verifyCodeInput) {
             verifyCodeInput.value = '';
@@ -90,6 +111,7 @@ const LoginSystem = (function() {
         localStorage.removeItem("refreshToken");
         localStorage.removeItem("tokenExpires");
         localStorage.removeItem("AvatarUrl");
+        localStorage.removeItem("tempUserData");
     }
 
     async function P(b) {
@@ -126,55 +148,47 @@ const LoginSystem = (function() {
         }
     }
 
+    // DIMODIFIKASI: Fungsi ini sekarang mengupdate avatar di sidebar DAN di halaman profil
     function updateProfileImages() {
         const sidebarImg = document.getElementById('sidebarAvatar');
         const sidebarFallback = document.getElementById('sidebarProfileFallback');
-        
+        const profileImg = document.getElementById('profileAvatar');
+        const profileFallback = document.getElementById('profileAvatarFallback');
+
         let avatarUrl = localStorage.getItem('AvatarUrl');
-        
-        if (avatarUrl && avatarUrl.trim() !== '') {
-            let processedAvatarUrl = avatarUrl;
-            if (avatarUrl.includes('drive.google.com')) {
-                const fileIdMatch = avatarUrl.match(/[?&]id=([^&]+)/);
-                if (fileIdMatch) {
-                    const fileId = fileIdMatch[1];
-                    processedAvatarUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
-                }
+        let processedAvatarUrl = avatarUrl;
+
+        if (avatarUrl && avatarUrl.includes('drive.google.com')) {
+            const fileIdMatch = avatarUrl.match(/[?&]id=([^&]+)/);
+            if (fileIdMatch) {
+                processedAvatarUrl = `https://drive.google.com/uc?export=view&id=${fileIdMatch[1]}`;
             }
-            
-            if (sidebarImg) {
-                sidebarImg.src = processedAvatarUrl;
-                sidebarImg.style.display = 'block';
-                
-                sidebarImg.onload = function() {
-                    if (sidebarFallback) {
-                        sidebarFallback.style.display = 'none';
-                    }
-                };
-                
-                sidebarImg.onerror = function() {
-                    const proxyUrl = `https://pemanis.bulshitman1.workers.dev/avatar?url=${encodeURIComponent(processedAvatarUrl)}`;
-                    
-                    this.src = proxyUrl;
-                    
+        }
+
+        const images = [sidebarImg, profileImg].filter(Boolean);
+        const fallbacks = [sidebarFallback, profileFallback].filter(Boolean);
+
+        if (avatarUrl && avatarUrl.trim() !== '') {
+            images.forEach(img => {
+                img.src = processedAvatarUrl;
+                img.style.display = 'block';
+                img.onload = () => fallbacks.forEach(fb => fb.style.display = 'none');
+                img.onerror = function() {
+                    this.src = `https://pemanis.bulshitman1.workers.dev/avatar?url=${encodeURIComponent(processedAvatarUrl)}`;
                     this.onerror = function() {
                         this.style.display = 'none';
-                        if (sidebarFallback) {
-                            sidebarFallback.style.display = 'flex';
-                        }
+                        fallbacks.forEach(fb => fb.style.display = 'flex');
                     };
                 };
-            }
+            });
+            fallbacks.forEach(fb => fb.style.display = 'none');
         } else {
-            if (sidebarImg) {
-                sidebarImg.style.display = 'none';
-            }
-            if (sidebarFallback) {
-                sidebarFallback.style.display = 'flex';
-            }
+            images.forEach(img => img.style.display = 'none');
+            fallbacks.forEach(fb => fb.style.display = 'flex');
         }
     }
 
+    // DIMODIFIKASI: Fungsi ini memanggil ProfileSystem.init
     function D(u, userData = {}) {
         if (window.DashboardAPI) {
             window.DashboardAPI.showDashboard();
@@ -192,6 +206,11 @@ const LoginSystem = (function() {
         
         currentUser = userData;
         updateProfileImages();
+        
+        // DITAMBAHKAN: Inisialisasi sistem profil
+        if (window.ProfileSystem) {
+            ProfileSystem.init(P, currentUser);
+        }
     }
 
     async function V() {
@@ -224,75 +243,55 @@ const LoginSystem = (function() {
     // Public API
     return {
         init: function() {
-            // Check if user has tokens and show dashboard immediately
             const existingToken = localStorage.getItem("accessToken");
             const refreshToken = localStorage.getItem("refreshToken");
             
             if (existingToken && refreshToken) {
                 try {
                     const payload = JSON.parse(atob(existingToken.split(".")[1]));
+                    D(payload.name || payload.username || 'User', payload);
                     
-                    // Show dashboard immediately with cached data
-                    D(payload.name || payload.username || 'User');
-                    
-                    // Then validate and refresh tokens in background
                     setTimeout(async () => {
                         const isValid = await V();
                         if (isValid) {
                             try {
                                 const userDataResponse = await P({ action: "get-user-data" });
                                 
-                                if (userDataResponse.success) {
-                                    if (userDataResponse.data && userDataResponse.data.avatarUrl) {
-                                        localStorage.setItem('AvatarUrl', userDataResponse.data.avatarUrl);
-                                        updateProfileImages();
-                                    }
-                                    
-                                    const userName = document.getElementById("user-name");
-                                    const welcomeTitle = document.getElementById("welcome-title");
-                                    
-                                    if (userDataResponse.data.username && userName) {
-                                        userName.textContent = userDataResponse.data.username;
-                                    }
-                                    if (userDataResponse.data.username && welcomeTitle) {
-                                        welcomeTitle.textContent = `Selamat Datang, ${userDataResponse.data.username}!`;
-                                    }
+                                if (userDataResponse.success && userDataResponse.data) {
+                                    localStorage.setItem('AvatarUrl', userDataResponse.data.avatarUrl || '');
+                                    D(userDataResponse.data.username, userDataResponse.data);
                                 }
-                            } catch (e) {
-                                // Continue with cached data if server request fails
-                            }
+                            } catch (e) { /* Gagal fetch data baru, tetap gunakan data lama */ }
                         } else {
-                            if (window.DashboardAPI) {
-                                window.DashboardAPI.showLogin();
-                            }
+                            if (window.DashboardAPI) window.DashboardAPI.showLogin();
                             showMessage('info', 'Sesi telah berakhir, silakan login kembali');
                         }
                     }, 100);
                     
                 } catch (e) {
-                    if (window.DashboardAPI) {
-                        window.DashboardAPI.showLogin();
-                    }
+                    if (window.DashboardAPI) window.DashboardAPI.showLogin();
                 }
             } else {
-                if (window.DashboardAPI) {
-                    window.DashboardAPI.showLogin();
-                }
+                if (window.DashboardAPI) window.DashboardAPI.showLogin();
             }
 
             this.setupEventListeners();
         },
+        
+        // DITAMBAHKAN: Mengekspos fungsi update avatar
+        updateAllAvatars: function() {
+            updateProfileImages();
+        },
 
         setupEventListeners: function() {
-            // [DITAMBAHKAN] Captcha handler
+            // Captcha handler
             const refreshCaptchaBtn = document.getElementById('rc');
             if (refreshCaptchaBtn) {
                 refreshCaptchaBtn.addEventListener('click', (e) => {
-                    e.preventDefault(); // Mencegah form ter-submit jika tombol berada di dalam form
+                    e.preventDefault();
                     generateCaptcha();
                 });
             }
-            // Generate Captcha pertama kali saat halaman dimuat
             generateCaptcha();
 
             // Login form handler
@@ -301,14 +300,13 @@ const LoginSystem = (function() {
                 loginForm.addEventListener("submit", async (e) => {
                     e.preventDefault();
                     
-                    // [DITAMBAHKAN] Validasi Captcha
                     const captchaInput = document.getElementById('vc');
                     const userCaptcha = captchaInput.value.trim();
 
                     if (!userCaptcha || userCaptcha.toLowerCase() !== captchaCode.toLowerCase()) {
                         showMessage('error', 'Kode Verifikasi salah. Silakan coba lagi.');
-                        generateCaptcha(); // Buat captcha baru setelah gagal
-                        return; // Hentikan proses login
+                        generateCaptcha();
+                        return;
                     }
 
                     const nikInput = document.getElementById("nik");
@@ -324,7 +322,6 @@ const LoginSystem = (function() {
                         showMessage('error', 'NIK dan Password wajib diisi');
                         return;
                     }
-                    
                     if (nik.length !== 16 || !/^\d+$/.test(nik)) {
                         showMessage('error', 'NIK harus 16 digit angka');
                         return;
@@ -334,51 +331,30 @@ const LoginSystem = (function() {
                     loginText.textContent = 'Memproses...';
                     loginSpinner.classList.remove('hidden');
                     
-                    const requestPayload = {
-                        action: "login",
-                        nik: nik,
-                        password: password
-                    };
-                    
                     try {
-                        const response = await P(requestPayload);
+                        const response = await P({ action: "login", nik: nik, password: password });
                         
                         if (response.success && response.step === "otp") {
                             if (response.data) {
-                                if (response.data.avatarUrl) {
-                                    localStorage.setItem('AvatarUrl', response.data.avatarUrl);
-                                }
+                                localStorage.setItem('AvatarUrl', response.data.avatarUrl || '');
                                 localStorage.setItem('tempUserData', JSON.stringify(response.data));
                             }
-                            
                             document.getElementById("otp-overlay").classList.remove('hidden');
                             O(300);
                             showOtpMessage('info', 'Kode OTP telah dikirim');
-                            
-                            const otpInputs = document.querySelectorAll('.otp-input');
-                            if (otpInputs.length > 0) {
-                                otpInputs[0].focus();
-                            }
+                            document.querySelector('.otp-input')?.focus();
                         } else if (response.success) {
-                            if (response.data) {
-                                if (response.data.accessToken) {
-                                    T("accessToken", response.data.accessToken, response.data.tokenExpires - Math.floor(Date.now() / 1000));
-                                    T("refreshToken", response.data.refreshToken, response.data.tokenExpires - Math.floor(Date.now() / 1000));
-                                }
-                                
-                                if (response.data.avatarUrl) {
-                                    localStorage.setItem('AvatarUrl', response.data.avatarUrl);
-                                }
-                                
-                                D(response.data.username || response.data.name || 'User', response.data);
-                            }
+                            T("accessToken", response.data.accessToken, response.data.tokenExpires - Math.floor(Date.now() / 1000));
+                            T("refreshToken", response.data.refreshToken, response.data.tokenExpires - Math.floor(Date.now() / 1000));
+                            localStorage.setItem('AvatarUrl', response.data.avatarUrl || '');
+                            D(response.data.username || 'User', response.data);
                         } else {
                             showMessage('error', response.message || 'Login gagal');
-                            generateCaptcha(); // Buat captcha baru jika login gagal dari server
+                            generateCaptcha();
                         }
                     } catch (error) {
                         showMessage('error', 'Terjadi kesalahan koneksi');
-                        generateCaptcha(); // Buat captcha baru jika ada error koneksi
+                        generateCaptcha();
                     } finally {
                         loginBtn.disabled = false;
                         loginText.textContent = 'Masuk';
@@ -389,32 +365,24 @@ const LoginSystem = (function() {
 
             // OTP input functionality
             const otpInputs = document.querySelectorAll('.otp-input');
-            
             otpInputs.forEach((input, index) => {
                 input.addEventListener('input', (e) => {
                     e.target.value = e.target.value.replace(/[^0-9]/g, '');
-                    
                     if (e.target.value && index < otpInputs.length - 1) {
                         otpInputs[index + 1].focus();
                     }
                 });
-                
                 input.addEventListener('keydown', (e) => {
                     if (e.key === 'Backspace' && !e.target.value && index > 0) {
                         otpInputs[index - 1].focus();
                     }
                 });
-                
                 input.addEventListener('paste', (e) => {
                     e.preventDefault();
                     const pastedData = e.clipboardData.getData('text').replace(/[^0-9]/g, '');
-                    
                     for (let i = 0; i < Math.min(pastedData.length, otpInputs.length - index); i++) {
-                        if (otpInputs[index + i]) {
-                            otpInputs[index + i].value = pastedData[i];
-                        }
+                        otpInputs[index + i].value = pastedData[i];
                     }
-                    
                     const nextEmptyIndex = Math.min(index + pastedData.length, otpInputs.length - 1);
                     otpInputs[nextEmptyIndex].focus();
                 });
@@ -433,10 +401,7 @@ const LoginSystem = (function() {
                     
                     const nik = nikInput.value.trim();
                     
-                    let otp = '';
-                    otpInputs.forEach(input => {
-                        otp += input.value;
-                    });
+                    let otp = Array.from(otpInputs).map(input => input.value).join('');
                     
                     if (otp.length !== 6) {
                         showOtpMessage('error', 'Masukkan 6 digit kode OTP');
@@ -447,46 +412,22 @@ const LoginSystem = (function() {
                     verifyText.textContent = 'Memverifikasi...';
                     verifySpinner.classList.remove('hidden');
                     
-                    const requestPayload = {
-                        action: "verify-otp",
-                        nik: nik,
-                        otp: otp
-                    };
-                    
                     try {
-                        const response = await P(requestPayload);
+                        const response = await P({ action: "verify-otp", nik: nik, otp: otp });
                         
                         if (response.success) {
-                            const tempUserData = localStorage.getItem('tempUserData');
-                            let combinedUserData = response.data || {};
+                            const tempUserData = JSON.parse(localStorage.getItem('tempUserData') || '{}');
+                            const combinedUserData = { ...tempUserData, ...response.data };
                             
-                            if (tempUserData) {
-                                try {
-                                    const parsedTempData = JSON.parse(tempUserData);
-                                    combinedUserData = { ...parsedTempData, ...combinedUserData };
-                                    localStorage.removeItem('tempUserData');
-                                } catch (e) {
-                                    // Continue with response data only
-                                }
-                            }
+                            T("accessToken", response.data.accessToken, response.data.tokenExpires - Math.floor(Date.now() / 1000));
+                            T("refreshToken", response.data.refreshToken, response.data.tokenExpires - Math.floor(Date.now() / 1000));
+                            localStorage.setItem('AvatarUrl', combinedUserData.avatarUrl || '');
                             
-                            if (response.data.accessToken) {
-                                T("accessToken", response.data.accessToken, response.data.tokenExpires - Math.floor(Date.now() / 1000));
-                            }
-                            if (response.data.refreshToken) {
-                                T("refreshToken", response.data.refreshToken, response.data.tokenExpires - Math.floor(Date.now() / 1000));
-                            }
-                            
-                            if (response.data.avatarUrl) {
-                                localStorage.setItem('AvatarUrl', response.data.avatarUrl);
-                            } else if (combinedUserData.avatarUrl) {
-                                localStorage.setItem('AvatarUrl', combinedUserData.avatarUrl);
-                            }
-                            
-                            const username = combinedUserData.username || combinedUserData.name || response.data.username || response.data.name || 'User';
-                            D(username, combinedUserData);
+                            D(combinedUserData.username || 'User', combinedUserData);
                             
                             clearInterval(otpTimer);
+                            document.getElementById("otp-overlay").classList.add('hidden');
+                            localStorage.removeItem('tempUserData');
                         } else {
                             showOtpMessage('error', response.message || 'Kode OTP salah');
                         }
@@ -501,49 +442,33 @@ const LoginSystem = (function() {
             }
 
             // Resend OTP handler
-            const resendOtpBtn = document.getElementById("resend-otp");
-            if (resendOtpBtn) {
-                resendOtpBtn.addEventListener("click", async () => {
-                    const nikInput = document.getElementById("nik");
-                    const nik = nikInput.value.trim();
-                    
-                    try {
-                        const response = await P({
-                            action: "resend-otp",
-                            nik: nik
-                        });
-                        
-                        if (response.success) {
-                            showOtpMessage('success', 'Kode OTP baru telah dikirim');
-                            O(300);
-                        } else {
-                            showOtpMessage('error', response.message || 'Gagal mengirim ulang OTP');
-                        }
-                    } catch (error) {
-                        showOtpMessage('error', 'Terjadi kesalahan koneksi');
+            document.getElementById("resend-otp")?.addEventListener("click", async () => {
+                const nik = document.getElementById("nik").value.trim();
+                try {
+                    const response = await P({ action: "resend-otp", nik: nik });
+                    if (response.success) {
+                        showOtpMessage('success', 'Kode OTP baru telah dikirim');
+                        O(300);
+                    } else {
+                        showOtpMessage('error', response.message || 'Gagal mengirim ulang OTP');
                     }
-                });
-            }
+                } catch (error) {
+                    showOtpMessage('error', 'Terjadi kesalahan koneksi');
+                }
+            });
 
             // Close OTP handler
-            const closeOtpBtn = document.getElementById("close-otp");
-            if (closeOtpBtn) {
-                closeOtpBtn.addEventListener("click", () => {
-                    document.getElementById("otp-overlay").classList.add('hidden');
-                    clearInterval(otpTimer);
-                    
-                    otpInputs.forEach(input => {
-                        input.value = '';
-                    });
-                });
-            }
+            document.getElementById("close-otp")?.addEventListener("click", () => {
+                document.getElementById("otp-overlay").classList.add('hidden');
+                clearInterval(otpTimer);
+                otpInputs.forEach(input => input.value = '');
+            });
 
             // Password toggle
             const togglePassword = document.getElementById("toggle-password");
             const passwordInput = document.getElementById("password");
             const passwordIcon = document.getElementById("password-icon");
-            
-            if (togglePassword && passwordInput && passwordIcon) {
+            if (togglePassword) {
                 togglePassword.addEventListener("click", () => {
                     const type = passwordInput.getAttribute("type") === "password" ? "text" : "password";
                     passwordInput.setAttribute("type", type);
@@ -557,28 +482,18 @@ const LoginSystem = (function() {
                 logoutBtn.addEventListener("click", async () => {
                     const originalContent = logoutBtn.innerHTML;
                     logoutBtn.disabled = true;
-                    logoutBtn.innerHTML = `
-                        <div class="loading-spinner mr-3"></div>
-                        Logging out...
-                    `;
+                    logoutBtn.innerHTML = `<div class="loading-spinner mr-3"></div> Logging out...`;
                     
                     try {
                         await P({ action: "logout" });
-                    } catch (error) {
-                        // Continue with logout even if server request fails
-                    }
+                    } catch (error) { /* Abaikan error, tetap logout */ }
                     
                     setTimeout(() => {
                         C();
-                        if (window.DashboardAPI) {
-                            window.DashboardAPI.showLogin();
-                        }
+                        if (window.DashboardAPI) window.DashboardAPI.showLogin();
                         showMessage('success', 'Logout berhasil');
-                        
                         logoutBtn.disabled = false;
                         logoutBtn.innerHTML = originalContent;
-
-                        // [DITAMBAHKAN] Generate captcha baru setelah logout
                         generateCaptcha();
                     }, 800);
                 });
@@ -587,7 +502,139 @@ const LoginSystem = (function() {
     };
 })();
 
-// Auto-initialize when DOM is loaded
+// =================================================================
+
+// MODUL SISTEM PROFIL (KODE BARU)
+const ProfileSystem = (function() {
+    // Private variables
+    let apiHandler = null;
+    let currentUserData = null;
+
+    // Private functions
+    function showProfileMessage(type, message) {
+        // Ganti dengan sistem notifikasi yang lebih baik jika ada
+        alert(`${type.toUpperCase()}: ${message}`);
+    }
+
+    function loadProfileData() {
+        if (!currentUserData) return;
+
+        const profileName = document.getElementById('profileName');
+        const profileRole = document.getElementById('profileRole');
+        const editUsername = document.getElementById('editUsername');
+        const accountNik = document.getElementById('accountNik');
+        const lastLogin = document.getElementById('lastLogin');
+
+        if (profileName) profileName.textContent = currentUserData.username || 'User';
+        if (profileRole) profileRole.textContent = currentUserData.role || 'Member';
+        if (editUsername) editUsername.value = currentUserData.username || '';
+        if (accountNik && currentUserData.nik) accountNik.textContent = `****-****-****-${currentUserData.nik.slice(-4)}`;
+        if (lastLogin) lastLogin.textContent = currentUserData.lastLogin ? new Date(currentUserData.lastLogin).toLocaleString('id-ID') : "Baru saja";
+        
+        // Update avatar juga diurus oleh fungsi global updateProfileImages dari LoginSystem
+    }
+
+    async function handleAvatarUpload(file) {
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) {
+            showProfileMessage('error', 'Ukuran file maksimal 2MB.');
+            return;
+        }
+        if (!['image/jpeg', 'image/png'].includes(file.type)) {
+            showProfileMessage('error', 'Format file harus JPG atau PNG.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onloadend = async () => {
+            try {
+                const response = await apiHandler({
+                    action: "update-avatar",
+                    avatar: reader.result // Base64 string
+                });
+                if (response.success && response.data.avatarUrl) {
+                    showProfileMessage('success', 'Foto profil berhasil diperbarui.');
+                    localStorage.setItem('AvatarUrl', response.data.avatarUrl);
+                    if (window.LoginSystem) LoginSystem.updateAllAvatars();
+                } else {
+                    showProfileMessage('error', response.message || 'Gagal memperbarui foto.');
+                }
+            } catch (error) {
+                showProfileMessage('error', 'Terjadi kesalahan koneksi.');
+            }
+        };
+    }
+
+    // Public API
+    return {
+        init: function(api, userData) {
+            apiHandler = api;
+            currentUserData = userData;
+            
+            if (document.getElementById('edit-profile-form')) {
+                loadProfileData();
+                this.setupEventListeners();
+            }
+        },
+
+        setupEventListeners: function() {
+            document.getElementById('avatar')?.addEventListener('change', (e) => {
+                handleAvatarUpload(e.target.files[0]);
+            });
+
+            document.getElementById('edit-profile-form')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const newUsername = document.getElementById('editUsername').value.trim();
+                if (!newUsername) {
+                    showProfileMessage('error', 'Username tidak boleh kosong.');
+                    return;
+                }
+                try {
+                    const response = await apiHandler({ action: "update-profile", username: newUsername });
+                    if (response.success) {
+                        showProfileMessage('success', 'Username berhasil diperbarui.');
+                        currentUserData.username = newUsername;
+                        loadProfileData();
+                        if (document.getElementById('user-name')) document.getElementById('user-name').textContent = newUsername;
+                        if (document.getElementById('welcome-title')) document.getElementById('welcome-title').textContent = `Selamat Datang, ${newUsername}!`;
+                    } else {
+                        showProfileMessage('error', response.message || 'Gagal memperbarui username.');
+                    }
+                } catch (error) {
+                    showProfileMessage('error', 'Terjadi kesalahan koneksi.');
+                }
+            });
+
+            document.getElementById('change-password-form')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const form = e.target;
+                const oldPassword = document.getElementById('oldPassword').value;
+                const newPassword = document.getElementById('newPassword').value;
+
+                if (!oldPassword || !newPassword) {
+                    showProfileMessage('error', 'Semua field password wajib diisi.');
+                    return;
+                }
+                try {
+                    const response = await apiHandler({ action: "change-password", oldPassword, newPassword });
+                    if (response.success) {
+                        showProfileMessage('success', 'Password berhasil diubah.');
+                        form.reset();
+                    } else {
+                        showProfileMessage('error', response.message || 'Gagal mengubah password.');
+                    }
+                } catch (error) {
+                    showProfileMessage('error', 'Terjadi kesalahan koneksi.');
+                }
+            });
+        }
+    };
+})();
+
+// =================================================================
+
+// Auto-initialize ketika DOM sudah siap
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         LoginSystem.init();
