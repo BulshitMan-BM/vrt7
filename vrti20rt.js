@@ -237,42 +237,46 @@ const LoginSystem = (function() {
     // PUBLIC API
     // =========================================================================
     return {
-        init: function() {
+        init: async function() {
             const existingToken = localStorage.getItem("accessToken");
             const refreshToken = localStorage.getItem("refreshToken");
 
             if (existingToken && refreshToken) {
-                try {
-                    const payload = JSON.parse(atob(existingToken.split(".")[1]));
-                    showDashboard(payload.name || payload.username || 'User');
-                    
-                    setTimeout(async () => {
-                        const isValid = await validateAndRefreshToken();
-                        if (isValid) {
-                            try {
-                                const response = await apiRequest({ action: "get-user-data" });
-                                if (response.success && response.data) {
-                                    saveSessionData(response.data);
-                                    const username = response.data.username || payload.name || 'User';
-                                    showDashboard(username, response.data);
-                                }
-                            } catch (e) {
-                                console.error("Failed to fetch user data, using cached data.", e);
+                const isValid = await validateAndRefreshToken(); // Validate first
+                if (isValid) {
+                    try {
+                        // Get the potentially refreshed token
+                        const currentToken = localStorage.getItem("accessToken");
+                        const payload = JSON.parse(atob(currentToken.split(".")[1]));
+                        showDashboard(payload.name || payload.username || 'User');
+                        
+                        // Fetch fresh data in the background to update details
+                        try {
+                            const response = await apiRequest({ action: "get-user-data" });
+                            if (response.success && response.data) {
+                                saveSessionData(response.data);
+                                const username = response.data.username || payload.name || 'User';
+                                showDashboard(username, response.data); // Re-render with fresh data
                             }
-                        } else {
-                            if (window.DashboardAPI) window.DashboardAPI.showLogin();
-                            displayMessage('info', 'Sesi telah berakhir, silakan login kembali', 'login');
+                        } catch (e) {
+                            console.error("Failed to fetch user data, using cached data.", e);
                         }
-                    }, 100);
-                } catch (e) {
-                    clearSessionData();
+                    } catch (e) {
+                        // This might happen if the token is malformed even after validation
+                        clearSessionData();
+                        if (window.DashboardAPI) window.DashboardAPI.showLogin();
+                    }
+                } else {
+                    // Token validation failed
                     if (window.DashboardAPI) window.DashboardAPI.showLogin();
+                    displayMessage('info', 'Sesi telah berakhir, silakan login kembali', 'login');
                 }
             } else {
+                // No tokens found
                 if (window.DashboardAPI) window.DashboardAPI.showLogin();
             }
 
-            generateCaptcha(); // Generate the first CAPTCHA on load
+            generateCaptcha(); // Generate CAPTCHA for the login page
             this.setupEventListeners();
         },
 
