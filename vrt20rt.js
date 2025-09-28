@@ -2,7 +2,7 @@ const LoginSystem = (function() {
     // =========================================================================
     // PRIVATE CONFIGURATION & STATE
     // =========================================================================
-    const API_BASE_URL = "https://pemanis.bulshitman1.workers.dev/";
+    const API_BASE_URL = "https://pemanis.bulshitman1.workers.dev"; // FIX: Removed trailing slash
     const OTP_DURATION_SECONDS = 300; // 5 menit
 
     let otpTimer;
@@ -20,7 +20,7 @@ const LoginSystem = (function() {
      */
     async function apiRequest(payload) {
         const accessToken = localStorage.getItem("accessToken") || "";
-        const response = await fetch(API_BASE_URL, {
+        const response = await fetch(`${API_BASE_URL}/`, { // Added slash here for the main endpoint
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -482,3 +482,4 @@ if (document.readyState === 'loading') {
 } else {
     LoginSystem.init();
 }
+
