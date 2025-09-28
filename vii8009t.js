@@ -208,7 +208,11 @@ function D(u, userData = {}) {
     
     // Inisialisasi sistem profil
     if (window.ProfileSystem) {
-        if (!currentUserData || Object.keys(currentUserData).length === 0) {
+        // 👉 gunakan data user dari parameter kalau ada
+        if (userData && Object.keys(userData).length > 0) {
+            currentUserData = userData;
+        } else if (!currentUserData || Object.keys(currentUserData).length === 0) {
+            // fallback ke decode token kalau userData kosong
             try {
                 const token = localStorage.getItem("accessToken");
                 if (token) {
@@ -227,10 +231,10 @@ function D(u, userData = {}) {
             }
         }
         
-        // Panggil ProfileSystem dengan data yang sudah fix
         ProfileSystem.init(P, currentUserData);
     }
 }
+
 
     async function V() {
         const a = localStorage.getItem("accessToken");
