@@ -321,102 +321,116 @@ const LoginSystem = (function() {
         },
 
         // PERBAIKAN: Listener dipisah antara yang statis (login) dan dinamis (dashboard)
-        setupStaticEventListeners: function() {
-            // Login form handler
-            const loginForm = document.getElementById("login-form");
-            if (loginForm) {
-                loginForm.addEventListener("submit", async (e) => {
-                    e.preventDefault();
-                    
-                    const nik = document.getElementById("nik").value.trim();
-                    const password = document.getElementById("password").value.trim();
-                    const captchaInput = document.getElementById("vc");
-                    
-                    if (!nik || !password) {
-                        return showNotification('login-message', 'error', 'NIK dan Password wajib diisi');
-                    }
-                    if (nik.length !== 16 || !/^\d+$/.test(nik)) {
-                        return showNotification('login-message', 'error', 'NIK harus 16 digit angka');
-                    }
-                    if (!captchaInput || captchaInput.value.trim().toUpperCase() !== loginCaptchaCode) {
-                        generateLoginCaptcha();
-                        captchaInput.value = '';
-                        return showNotification('login-message', 'error', 'Captcha tidak valid');
-                    }
+     setupStaticEventListeners: function() {
+    // DITAMBAHKAN: Event listener untuk tombol refresh captcha
+    const refreshCaptchaBtn = document.getElementById("rc");
+    if (refreshCaptchaBtn) {
+        refreshCaptchaBtn.addEventListener("click", () => {
+            generateLoginCaptcha();
+            const captchaInput = document.getElementById("vc");
+            if (captchaInput) {
+                captchaInput.value = '';
+            }
+        });
+    }
 
-                    const loginBtn = document.getElementById("login-btn");
-                    loginBtn.disabled = true;
-                    // Tampilkan spinner, dll.
-
-                    try {
-                        const response = await apiPostRequest({ action: "login", nik, password });
-                        if (response.success && response.step === "otp") {
-                            // Simpan data sementara untuk digabung setelah OTP
-                            localStorage.setItem('tempUserData', JSON.stringify(response.data));
-                            document.getElementById("otp-overlay").classList.remove('hidden');
-                            startOtpTimer(300);
-                            showNotification('otp-message', 'info', 'Kode OTP telah dikirim');
-                            document.querySelector('.otp-input')?.focus();
-                        } else if (response.success) {
-                            saveTokens(response.data);
-                            localStorage.setItem('AvatarUrl', response.data.avatarUrl || '');
-                            renderAndShowDashboard(response.data);
-                        } else {
-                            showNotification('login-message', 'error', response.message || 'Login gagal');
-                        }
-                    } catch (error) {
-                        showNotification('login-message', 'error', 'Terjadi kesalahan koneksi');
-                    } finally {
-                        loginBtn.disabled = false;
-                        // Sembunyikan spinner, dll.
-                    }
-                });
+    // Login form handler
+    const loginForm = document.getElementById("login-form");
+    if (loginForm) {
+        loginForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            
+            const nik = document.getElementById("nik").value.trim();
+            const password = document.getElementById("password").value.trim();
+            const captchaInput = document.getElementById("vc");
+            
+            if (!nik || !password) {
+                return showNotification('login-message', 'error', 'NIK dan Password wajib diisi');
+            }
+            if (nik.length !== 16 || !/^\d+$/.test(nik)) {
+                return showNotification('login-message', 'error', 'NIK harus 16 digit angka');
+            }
+            if (!captchaInput || captchaInput.value.trim().toUpperCase() !== loginCaptchaCode) {
+                generateLoginCaptcha();
+                captchaInput.value = '';
+                return showNotification('login-message', 'error', 'Captcha tidak valid');
             }
 
-            // OTP form handler
-            const otpForm = document.getElementById("otp-form");
-            if (otpForm) {
-                otpForm.addEventListener("submit", async (e) => {
-                    e.preventDefault();
-                    
-                    const otpInputs = document.querySelectorAll('.otp-input');
-                    let otp = Array.from(otpInputs).map(input => input.value).join('');
+            const loginBtn = document.getElementById("login-btn");
+            loginBtn.disabled = true;
+            // Tampilkan spinner, dll.
 
-                    if (otp.length !== 6) {
-                        return showNotification('otp-message', 'error', 'Masukkan 6 digit kode OTP');
-                    }
-
-                    const verifyBtn = document.getElementById("verify-otp-btn");
-                    verifyBtn.disabled = true;
-                    // Tampilkan spinner
-
-                    try {
-                         const nik = document.getElementById("nik").value.trim();
-                         const response = await apiPostRequest({ action: "verify-otp", nik, otp });
-                         
-                         if (response.success) {
-                             const tempUserData = JSON.parse(localStorage.getItem('tempUserData') || '{}');
-                             const combinedUserData = { ...tempUserData, ...response.data };
-                             
-                             saveTokens(response.data);
-                             localStorage.setItem('AvatarUrl', combinedUserData.avatarUrl || '');
-                             
-                             renderAndShowDashboard(combinedUserData);
-                             
-                             document.getElementById("otp-overlay").classList.add('hidden');
-                             clearInterval(otpTimer);
-                             localStorage.removeItem('tempUserData');
-                         } else {
-                             showNotification('otp-message', 'error', response.message || 'Kode OTP salah');
-                         }
-                    } catch (error) {
-                        showNotification('otp-message', 'error', 'Terjadi kesalahan koneksi');
-                    } finally {
-                        verifyBtn.disabled = false;
-                        // Sembunyikan spinner
-                    }
-                });
+            try {
+                const response = await apiPostRequest({ action: "login", nik, password });
+                if (response.success && response.step === "otp") {
+                    // Simpan data sementara untuk digabung setelah OTP
+                    localStorage.setItem('tempUserData', JSON.stringify(response.data));
+                    document.getElementById("otp-overlay").classList.remove('hidden');
+                    startOtpTimer(300);
+                    showNotification('otp-message', 'info', 'Kode OTP telah dikirim');
+                    document.querySelector('.otp-input')?.focus();
+                } else if (response.success) {
+                    saveTokens(response.data);
+                    localStorage.setItem('AvatarUrl', response.data.avatarUrl || '');
+                    renderAndShowDashboard(response.data);
+                } else {
+                    generateLoginCaptcha(); // Buat captcha baru jika login gagal
+                    captchaInput.value = '';
+                    showNotification('login-message', 'error', response.message || 'Login gagal');
+                }
+            } catch (error) {
+                showNotification('login-message', 'error', 'Terjadi kesalahan koneksi');
+            } finally {
+                loginBtn.disabled = false;
+                // Sembunyikan spinner, dll.
             }
+        });
+    }
+
+    // OTP form handler
+    const otpForm = document.getElementById("otp-form");
+    if (otpForm) {
+        otpForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            
+            const otpInputs = document.querySelectorAll('.otp-input');
+            let otp = Array.from(otpInputs).map(input => input.value).join('');
+
+            if (otp.length !== 6) {
+                return showNotification('otp-message', 'error', 'Masukkan 6 digit kode OTP');
+            }
+
+            const verifyBtn = document.getElementById("verify-otp-btn");
+            verifyBtn.disabled = true;
+            // Tampilkan spinner
+
+            try {
+                 const nik = document.getElementById("nik").value.trim();
+                 const response = await apiPostRequest({ action: "verify-otp", nik, otp });
+                 
+                 if (response.success) {
+                     const tempUserData = JSON.parse(localStorage.getItem('tempUserData') || '{}');
+                     const combinedUserData = { ...tempUserData, ...response.data };
+                     
+                     saveTokens(response.data);
+                     localStorage.setItem('AvatarUrl', combinedUserData.avatarUrl || '');
+                     
+                     renderAndShowDashboard(combinedUserData);
+                     
+                     document.getElementById("otp-overlay").classList.add('hidden');
+                     clearInterval(otpTimer);
+                     localStorage.removeItem('tempUserData');
+                 } else {
+                     showNotification('otp-message', 'error', response.message || 'Kode OTP salah');
+                 }
+            } catch (error) {
+                showNotification('otp-message', 'error', 'Terjadi kesalahan koneksi');
+            } finally {
+                verifyBtn.disabled = false;
+                // Sembunyikan spinner
+            }
+        });
+    }
 
             // OTP input functionality
             const otpInputs = document.querySelectorAll('.otp-input');
