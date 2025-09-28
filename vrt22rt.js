@@ -298,7 +298,7 @@ function renderDashboard(userData) {
                             if (window.DashboardAPI) {
                                 window.DashboardAPI.showLogin();
                             }
-                            showMessage('info', 'Sesi telah berakhir, silakan login kembali');
+                            showMessage('Login Lagi Yaaaa :)');
                         }
                     }, 100);
                     
@@ -317,6 +317,7 @@ generateLoginCaptcha();
         },
 
         setupEventListeners: function() {
+                 const otpInputs = document.querySelectorAll('.otp-input');
                              const refreshBtn = document.getElementById("rc");
 if (refreshBtn) {
     refreshBtn.addEventListener("click", () => {
@@ -412,7 +413,6 @@ if (!captchaInput || captchaInput.value.trim().toUpperCase() !== loginCaptchaCod
             }
 
             // OTP input functionality
-            const otpInputs = document.querySelectorAll('.otp-input');
             
             otpInputs.forEach((input, index) => {
                 input.addEventListener('input', (e) => {
