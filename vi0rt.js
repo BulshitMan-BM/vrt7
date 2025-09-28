@@ -137,14 +137,30 @@ const LoginSystem = (function() {
         localStorage.removeItem("tempUserData");
     }
 
-    function generateCaptcha() {
-        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-        captchaCode = [...Array(5)].map(() => chars.charAt(Math.floor(Math.random() * chars.length))).join('');
-        const captchaTextEl = document.getElementById('ct');
-        if (captchaTextEl) captchaTextEl.textContent = captchaCode;
-        const captchaInputEl = document.getElementById('vc');
-        if (captchaInputEl) captchaInputEl.value = '';
+function generateCaptcha() {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    captchaCode = [...Array(5)].map(() => chars.charAt(Math.floor(Math.random() * chars.length))).join('');
+
+    const captchaTextEl = document.getElementById('ct');
+    if (!captchaTextEl) return;
+
+    captchaTextEl.innerHTML = ''; // Clear previous
+    
+    for (let i = 0; i < captchaCode.length; i++) {
+        const span = document.createElement('span');
+        span.textContent = captchaCode[i];
+        span.style.display = 'inline-block';
+        span.style.transform = `rotate(${Math.floor(Math.random() * 30 - 15)}deg)`; // rotasi acak -15° sampai 15°
+        span.style.color = `rgb(${Math.floor(Math.random()*150)},${Math.floor(Math.random()*150)},${Math.floor(Math.random()*150)})`;
+        span.style.fontWeight = 'bold';
+        span.style.fontSize = `${16 + Math.floor(Math.random() * 8)}px`;
+        captchaTextEl.appendChild(span);
     }
+
+    const captchaInputEl = document.getElementById('vc');
+    if (captchaInputEl) captchaInputEl.value = '';
+}
+
 
     function startOtpTimer(duration) {
         clearInterval(otpTimer);
