@@ -1,242 +1,122 @@
 // =======================
-// PROFILE MANAGEMENT
+// PROFILE PAGE LOGIC
 // =======================
 
-// Profile page functionality
-function initProfilePage() {
-    const profilePageBtn = document.getElementById("profile-page-btn");
-    const backToDashboardFromProfile = document.getElementById("back-to-dashboard-from-profile");
-    const editProfileFromPage = document.getElementById("edit-profile-from-page");
-    const editProfileBtnPage = document.getElementById("edit-profile-btn-page");
-    const changePasswordBtnPage = document.getElementById("change-password-btn-page");
+// Variabel global untuk menyimpan data profil agar tidak fetch berulang kali
+let currentProfileData = null;
+
+/**
+ * Inisialisasi event listener untuk halaman profil.
+ */
+function initProfile() {
     const downloadProfileBtn = document.getElementById("download-profile-btn");
-    
-    if (profilePageBtn) {
-        profilePageBtn.addEventListener("click", showProfilePage);
-    }
-    
-    if (backToDashboardFromProfile) {
-        backToDashboardFromProfile.addEventListener("click", () => {
-            if (typeof backToDashboard === 'function') {
-                backToDashboard();
-            }
-        });
-    }
-    
-    if (editProfileFromPage) {
-        editProfileFromPage.addEventListener("click", () => {
-            if (typeof showEditProfile === 'function') {
-                showEditProfile('profile');
-            }
-        });
-    }
-    
-    if (editProfileBtnPage) {
-        editProfileBtnPage.addEventListener("click", () => {
-            if (typeof showEditProfile === 'function') {
-                showEditProfile('profile');
-            }
-        });
-    }
-    
-    if (changePasswordBtnPage) {
-        changePasswordBtnPage.addEventListener("click", () => {
-            if (typeof showChangePassword === 'function') {
-                showChangePassword('profile');
-            }
-        });
-    }
-    
     if (downloadProfileBtn) {
         downloadProfileBtn.addEventListener("click", downloadProfileData);
     }
+    
+    // Tambahkan listener lain yang spesifik untuk halaman profil di sini
 }
 
-// Show profile page
-function showProfilePage() {
-    if (typeof currentPage !== 'undefined' && currentPage === 'profile') {
-        return;
-    }
+async function loadProfilePageData() {
+    const profileCard = document.querySelector('#profile-content .max-w-4xl');
     
-    if (typeof setCurrentPage === 'function') {
-        setCurrentPage('profile');
-    }
-    
-    document.getElementById('dashboard-content').classList.add('hidden');
-    document.getElementById('settings-content').classList.add('hidden');
-    document.getElementById('profile-content').classList.remove('hidden');
-    
+    // Tampilkan loading
     document.getElementById('profile-page-loading').classList.remove('hidden');
     document.getElementById('profile-page-header').classList.add('hidden');
-    
-    const profileCard = document.querySelector('#profile-content .max-w-4xl');
-    if (profileCard) {
-        profileCard.classList.add('hidden');
-    }
-    
-    const profileDropdown = document.getElementById("profile-dropdown");
-    if (profileDropdown) {
-        profileDropdown.classList.add('hidden');
-    }
-    
-    setTimeout(() => {
-        loadProfilePageData();
-    }, 800);
-}
+    if (profileCard) profileCard.classList.add('hidden');
 
-// Load profile page data
-async function loadProfilePageData() {
     try {
         const response = await P({ action: "get-profile" });
-        
         if (response.success) {
-            const userData = response.data;
+            currentProfileData = response.data; // Simpan data
             
-            const profilePageName = document.getElementById("profile-page-name");
-            const profilePageRole = document.getElementById("profile-page-role");
-            const profileDisplayName = document.getElementById("profile-display-name");
-            const profileDisplayEmail = document.getElementById("profile-display-email");
-            const profileDisplayNik = document.getElementById("profile-display-nik");
-            const profileDisplayRoleBadge = document.getElementById("profile-display-role-badge");
-            const profileJoinDate = document.getElementById("profile-join-date");
-            const profileLastLogin = document.getElementById("profile-last-login");
+            // Perbarui elemen UI halaman profil
+            document.getElementById("profile-page-name").textContent = currentProfileData.name || "User";
+            document.getElementById("profile-page-role").textContent = currentProfileData.role || "User";
+            document.getElementById("profile-display-name").textContent = currentProfileData.name || "User";
+            document.getElementById("profile-display-email").innerHTML = `<i class="fas fa-envelope mr-2 text-gray-500"></i>${currentProfileData.email || "N/A"}`;
+            document.getElementById("profile-display-nik").innerHTML = `<i class="fas fa-id-card mr-2 text-gray-500"></i>${currentProfileData.nik || "N/A"}`;
+            document.getElementById("profile-display-role-badge").innerHTML = `<i class="fas fa-shield-alt mr-2"></i>${currentProfileData.role || "User"}`;
             
-            if (profilePageName) profilePageName.textContent = userData.name || userData.username || "User";
-            if (profilePageRole) profilePageRole.textContent = userData.role || "User";
-            if (profileDisplayName) profileDisplayName.textContent = userData.name || userData.username || "User";
-            if (profileDisplayEmail) {
-                profileDisplayEmail.innerHTML = `<i class="fas fa-envelope mr-2 text-gray-500"></i>${userData.email || "Tidak tersedia"}`;
-            }
-            if (profileDisplayNik) {
-                profileDisplayNik.innerHTML = `<i class="fas fa-id-card mr-2 text-gray-500"></i>${userData.nik || "Tidak tersedia"}`;
-            }
-            if (profileDisplayRoleBadge) {
-                profileDisplayRoleBadge.innerHTML = `<i class="fas fa-shield-alt mr-2"></i>${userData.role || "User"}`;
-            }
-            if (profileJoinDate) {
-                const joinDate = userData.createdAt ? new Date(userData.createdAt).toLocaleDateString('id-ID') : "Tidak tersedia";
-                profileJoinDate.textContent = joinDate;
-            }
-            if (profileLastLogin) {
-                const lastLogin = userData.lastLogin ? new Date(userData.lastLogin).toLocaleString('id-ID') : "Sekarang";
-                profileLastLogin.innerHTML = `<i class="fas fa-clock mr-2 text-gray-500"></i>${lastLogin}`;
-            }
+            const joinDate = currentProfileData.createdAt ? new Date(currentProfileData.createdAt).toLocaleDateString('id-ID') : "N/A";
+            document.getElementById("profile-join-date").textContent = joinDate;
+
+            const lastLogin = currentProfileData.lastLogin ? new Date(currentProfileData.lastLogin).toLocaleString('id-ID') : "Sekarang";
+            document.getElementById("profile-last-login").innerHTML = `<i class="fas fa-clock mr-2 text-gray-500"></i>${lastLogin}`;
             
-            if (userData.avatarUrl) {
-                updateProfilePageAvatar(userData.avatarUrl);
-            }
-            
-            document.getElementById('profile-page-loading').classList.add('hidden');
-            document.getElementById('profile-page-header').classList.remove('hidden');
-            
-            const profileCard = document.querySelector('#profile-content .max-w-4xl');
-            if (profileCard) {
-                profileCard.classList.remove('hidden');
-            }
-            
-            if (typeof showMessage === 'function') {
-                showMessage("profile-page-message", "Profil berhasil dimuat", "success");
-            }
+            updateProfilePageAvatar(currentProfileData.avatarUrl);
+            showMessage("profile-page-message", "Profil berhasil dimuat", "success");
         } else {
-            document.getElementById('profile-page-loading').classList.add('hidden');
-            document.getElementById('profile-page-header').classList.remove('hidden');
-            
-            const profileCard = document.querySelector('#profile-content .max-w-4xl');
-            if (profileCard) {
-                profileCard.classList.remove('hidden');
-            }
-            
-            if (typeof showMessage === 'function') {
-                showMessage("profile-page-message", "Gagal memuat data profil", "error");
-            }
+            showMessage("profile-page-message", "Gagal memuat data profil", "error");
         }
     } catch (error) {
+        showMessage("profile-page-message", "Terjadi kesalahan saat memuat data", "error");
+    } finally {
+        // Sembunyikan loading dan tampilkan konten
         document.getElementById('profile-page-loading').classList.add('hidden');
         document.getElementById('profile-page-header').classList.remove('hidden');
-        
-        const profileCard = document.querySelector('#profile-content .max-w-4xl');
-        if (profileCard) {
-            profileCard.classList.remove('hidden');
-        }
-        
-        if (typeof showMessage === 'function') {
-            showMessage("profile-page-message", "Terjadi kesalahan saat memuat data", "error");
-        }
+        if (profileCard) profileCard.classList.remove('hidden');
     }
 }
 
-// Update avatar in profile page
 function updateProfilePageAvatar(avatarUrl) {
-    const profilePageAvatar = document.getElementById("profile-page-avatar");
-    const profilePageFallback = document.getElementById("profile-page-avatar-fallback");
-    
-    if (avatarUrl && profilePageAvatar && profilePageFallback) {
+    const avatar = document.getElementById("profile-page-avatar");
+    const fallback = document.getElementById("profile-page-avatar-fallback");
+    if (!avatar || !fallback) return;
+
+    if (avatarUrl) {
         const processedUrl = `${W}/avatar?url=${encodeURIComponent(avatarUrl)}`;
-        
         const img = new Image();
         img.crossOrigin = "anonymous";
-        
-        img.onload = function() {
-            profilePageAvatar.src = processedUrl;
-            profilePageAvatar.style.display = "block";
-            profilePageFallback.style.display = "none";
+        img.onload = () => {
+            avatar.src = processedUrl;
+            avatar.style.display = "block";
+            fallback.style.display = "none";
         };
-        
-        img.onerror = function() {
-            profilePageAvatar.style.display = "none";
-            profilePageFallback.style.display = "flex";
+        img.onerror = () => {
+            avatar.style.display = "none";
+            fallback.style.display = "flex";
         };
-        
         img.src = processedUrl;
+    } else {
+        avatar.style.display = "none";
+        fallback.style.display = "flex";
     }
 }
 
-// Download profile data function
 function downloadProfileData() {
     const downloadBtn = document.getElementById("download-profile-btn");
     const originalText = downloadBtn.innerHTML;
-    
+
+    // Status loading
     downloadBtn.disabled = true;
     downloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Mengunduh...';
-    
-    const profileData = {
-        nama: document.getElementById("profile-display-name")?.textContent || "N/A",
-        email: document.getElementById("profile-display-email")?.textContent?.replace(/.*\s/, "") || "N/A",
-        nik: document.getElementById("profile-display-nik")?.textContent?.replace(/.*\s/, "") || "N/A",
-        role: document.getElementById("profile-display-role-badge")?.textContent?.trim() || "N/A",
-        tanggalBergabung: document.getElementById("profile-join-date")?.textContent || "N/A",
-        terakhirLogin: document.getElementById("profile-last-login")?.textContent?.replace(/.*\s/, "") || "N/A"
-    };
-    
+
     const content = `DATA PROFIL PENGGUNA
 ===================
+Nama Lengkap: ${currentProfileData?.name || "N/A"}
+Email: ${currentProfileData?.email || "N/A"}
+NIK: ${currentProfileData?.nik || "N/A"}
+Role: ${currentProfileData?.role || "N/A"}
+Tanggal Bergabung: ${currentProfileData?.createdAt ? new Date(currentProfileData.createdAt).toLocaleDateString('id-ID') : "N/A"}
+Terakhir Login: ${currentProfileData?.lastLogin ? new Date(currentProfileData.lastLogin).toLocaleString('id-ID') : "N/A"}
 
-Nama Lengkap: ${profileData.nama}
-Email: ${profileData.email}
-NIK: ${profileData.nik}
-Role: ${profileData.role}
-Tanggal Bergabung: ${profileData.tanggalBergabung}
-Terakhir Login: ${profileData.terakhirLogin}
+Diunduh pada: ${new Date().toLocaleString('id-ID')}`;
 
-Diunduh pada: ${new Date().toLocaleString('id-ID')}
-`;
-    
     setTimeout(() => {
         const blob = new Blob([content], { type: 'text/plain' });
-        const url = window.URL.createObjectURL(blob);
+        const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `profil_${profileData.nama.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.txt`;
+        a.download = `profil_${(currentProfileData?.name || "user").replace(/\s+/g, '_')}.txt`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
+        URL.revokeObjectURL(url);
         
+        // Kembalikan tombol
         downloadBtn.disabled = false;
         downloadBtn.innerHTML = originalText;
-        
-        if (typeof showMessage === 'function') {
-            showMessage("profile-page-message", "Data profil berhasil diunduh", "success");
-        }
+        showMessage("profile-page-message", "Data profil berhasil diunduh", "success");
     }, 1500);
 }
